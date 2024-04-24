@@ -1,0 +1,546 @@
+// @version=5
+
+// Assembled by @ClassicScott
+
+// What is the "Ultimate MA" exactly, you ask? Simple. It actually takes as its influence the Rex Dog Moving Average (which I have included as
+// an MA in some of my other indicators), an invention by @RexDogActual that is simply an average of 6 different period moving averages.
+// It's available for free on his account, so take a look at it.
+// I've recently become drawn to using fibonacci sequence numbers as lookbacks for moving averages, and they work really well.
+
+// You can see where this is going. The Ultimate MA is an average of several (eight) moving averages of varying lengths (5 - 144) all of fibonacci
+// numbers. Sounds pretty basic, right? That's not actually the case, however.
+// If you were to take all these numbers, add them up, then average them by eight you'd get ~46. Now, stick a 46 period moving average on the
+// chart and compare it to this one and see what you get. They track price very differently. Still, this all sort of sounds like I'm copying the
+// RDMA, which isn't a sin in itself but is hardly grounds for releasing a new MA into the wild.
+
+// The actual initial problem I wanted to tackle was how to take in to account for the entire range of price action in a candle in a moving average.
+// ohlc4 sort of does this, but it's still just one line that is an average of all these prices, and I thought there might be a better way
+// (not claiming that what I came upon is, but I like it).
+// My solution was to plot two moving averages: one an average of price highs, and the other an average of lows, thus creating a high/low price
+// channel. Perhaps this is not a new thing at all. I don't know. This is just an idea I had that I figured I could implement easily enough.
+
+// Originally I had just applied this to a 21 period EMA, but then the idea sort of expanded into what you see here. I kept thinking "is 21 the
+// best?" What about faster or slower? Then I thought about the RDMA and decided on this implimentation.
+
+// Further, I take the high and low moving averages and divide them by two in order to get a basis. You can turn all this stuff on or off,
+// though I do like the default settings.
+// After that I wanted to add bands to it to measure volatility. There is an RDMA version that utilizes ATR bands, but I could never find myself
+// happy with these.
+// I just wanted something... else. I also, actually made my own version of xkavalis' RDMA bands with some of the extra stuff I included here,
+// but obviously didn't feel comfortable releasing it as an indicator as I hadn't changed it enough significantly in my mind to fairly do so.
+// I eventually settled on Bollinger Bands as an appropriate solution to apply to the situation. I really like them. It took some fiddling
+// because I had to create a standard deviation for both the high and low MAs instead of just one, and then figure out the best combination of
+// moving averages and standard deviations to add and subtract to get the bands right.
+
+// Then I decided I wanted to add a few different moving averages to choose from instead of just an EMA even though I think it's the "best."
+// I didn't want to make things too complicated, so I just went with the standards--EMA, SMA, WMA, HMA-- + 1, the ALMA (which gives some adjustability
+// with its offset and sigma).
+// Also, you can run more than one moving average at a time (try running an HMA with a slower one).
+
+// Oh yeah, the bands? You can set them, in a dropdown box, to be based on which ever moving average you want.
+
+// Furthermore, this is a multi-timeframe indicator, so if you want to run it on a higher time frame than the one you are trading on, it's great
+// for that.
+
+// ALSO, I actually have the basis color setup as multi-timeframe. What this means is that if you are looking at an hourly chart, you can set the
+// color to a 4h (or higher) chart if you want, and if the current candle is above or below the previous close of the basis on that higher
+// timeframe you will know simply by looking at the color of it ((while still being on the hourly chart). It's just a different way of utilizing
+// higher timeframe information, but without the indicator itself plotted as higher timeframe.
+
+// I'm nearly finished. Almost last thing is a 200 period moving average. It's plotted as an average of the SMA, EMA, and Kijun.
+
+// Lastly, there are alerts for price crossing the UMA, the inner border of the bands, or the 200 MA.
+
+
+indicator('+ Ultimate MA', shorttitle='+ UMA', overlay=true)
+
+
+////ALMA
+_alma = input.bool(defval=false, title='', group='ALMA')
+alma_offset = input.float(title='Offset', defval=0.85, step=0.025, inline='inputs', group='ALMA')
+alma_sigma = input.float(title='Sigma', defval=6, step=0.5, inline='inputs', group='ALMA')
+i_alma_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='ALMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+alma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='ALMA')
+alma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='ALMA')
+greater_alma_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='ALMA')
+
+lbl_alma = input.bool(defval=false, title='Labels On or Off', group='ALMA')
+lbl_color_alma = input.color(color.new(color.gray, 90), title='Label Color', group='ALMA')
+text_color_alma = input.color(#b2b5be, title='Text Color', group='ALMA')
+lbl_dist_alma = input.int(defval=21, title='Label Distance', group='ALMA')
+
+
+h_alma_5 = ta.alma(high, 5, alma_offset, alma_sigma)
+h_alma_8 = ta.alma(high, 8, alma_offset, alma_sigma)
+h_alma_13 = ta.alma(high, 13, alma_offset, alma_sigma)
+h_alma_21 = ta.alma(high, 21, alma_offset, alma_sigma)
+h_alma_34 = ta.alma(high, 34, alma_offset, alma_sigma)
+h_alma_55 = ta.alma(high, 55, alma_offset, alma_sigma)
+h_alma_89 = ta.alma(high, 89, alma_offset, alma_sigma)
+h_alma_144 = ta.alma(high, 144, alma_offset, alma_sigma)
+
+h_alma_avg = (h_alma_5 + h_alma_8 + h_alma_13 + h_alma_21 + h_alma_34 + h_alma_55 + h_alma_89 + h_alma_144) / 8
+
+l_alma_5 = ta.alma(low, 5, alma_offset, alma_sigma)
+l_alma_8 = ta.alma(low, 8, alma_offset, alma_sigma)
+l_alma_13 = ta.alma(low, 13, alma_offset, alma_sigma)
+l_alma_21 = ta.alma(low, 21, alma_offset, alma_sigma)
+l_alma_34 = ta.alma(low, 34, alma_offset, alma_sigma)
+l_alma_55 = ta.alma(low, 55, alma_offset, alma_sigma)
+l_alma_89 = ta.alma(low, 89, alma_offset, alma_sigma)
+l_alma_144 = ta.alma(low, 144, alma_offset, alma_sigma)
+
+l_alma_avg = (l_alma_5 + l_alma_8 + l_alma_13 + l_alma_21 + l_alma_34 + l_alma_55 + l_alma_89 + l_alma_144) / 8
+
+
+alma_basis = (h_alma_avg + l_alma_avg) / 2
+
+p_alma_basis = plot(_alma ? alma_basis : na, color=request.security(syminfo.tickerid, i_alma_tf, close > alma_basis[1] ? alma_bull_color : close < alma_basis[1] ? alma_bear_color : na), linewidth=2, title='ALMA Basis')
+p_alma_h = plot(_alma ? h_alma_avg : na, title='ALMA-High', display=display.none)
+p_alma_l = plot(_alma ? l_alma_avg : na, title='ALMA-Low', display=display.none)
+
+fill(p_alma_h, p_alma_l, greater_alma_color, title='ALMA Channel')
+
+var alma_lbl_1h = lbl_alma ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_alma, textcolor=text_color_alma, style=label.style_label_left) : na
+label.set_xy(alma_lbl_1h, bar_index + lbl_dist_alma, request.security(syminfo.tickerid, '60', alma_basis))
+
+var alma_lbl_4h = lbl_alma ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_alma, textcolor=text_color_alma, style=label.style_label_left) : na
+label.set_xy(alma_lbl_4h, bar_index + lbl_dist_alma, request.security(syminfo.tickerid, '240', alma_basis))
+
+var alma_lbl_D = lbl_alma ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_alma, textcolor=text_color_alma, style=label.style_label_left) : na
+label.set_xy(alma_lbl_D, bar_index + lbl_dist_alma, request.security(syminfo.tickerid, 'D', alma_basis))
+
+var alma_lbl_4D = lbl_alma ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_alma, textcolor=text_color_alma, style=label.style_label_left) : na
+label.set_xy(alma_lbl_4D, bar_index + lbl_dist_alma, request.security(syminfo.tickerid, '4D', alma_basis))
+
+var alma_lbl_W = lbl_alma ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_alma, textcolor=text_color_alma, style=label.style_label_left) : na
+label.set_xy(alma_lbl_W, bar_index + lbl_dist_alma, request.security(syminfo.tickerid, 'W', alma_basis))
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////EMA
+_ema = input.bool(defval=false, title='', group='EMA')
+i_ema_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='EMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+ema_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='EMA')
+ema_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='EMA')
+greater_ema_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='EMA')
+
+lbl_ema = input.bool(defval=false, title='Labels On or Off', group='EMA')
+lbl_color_ema = input.color(color.new(color.gray, 90), title='Label Color', group='EMA')
+text_color_ema = input.color(#b2b5be, title='Text Color', group='EMA')
+lbl_dist_ema = input.int(defval=21, title='Label Distance', group='EMA')
+
+
+h_ema_5 = ta.ema(high, 5)
+h_ema_8 = ta.ema(high, 8)
+h_ema_13 = ta.ema(high, 13)
+h_ema_21 = ta.ema(high, 21)
+h_ema_34 = ta.ema(high, 34)
+h_ema_55 = ta.ema(high, 55)
+h_ema_89 = ta.ema(high, 89)
+h_ema_144 = ta.ema(high, 144)
+
+h_ema_avg = (h_ema_5 + h_ema_8 + h_ema_13 + h_ema_21 + h_ema_34 + h_ema_55 + h_ema_89 + h_ema_144) / 8
+
+l_ema_5 = ta.ema(low, 5)
+l_ema_8 = ta.ema(low, 8)
+l_ema_13 = ta.ema(low, 13)
+l_ema_21 = ta.ema(low, 21)
+l_ema_34 = ta.ema(low, 34)
+l_ema_55 = ta.ema(low, 55)
+l_ema_89 = ta.ema(low, 89)
+l_ema_144 = ta.ema(low, 144)
+
+l_ema_avg = (l_ema_5 + l_ema_8 + l_ema_13 + l_ema_21 + l_ema_34 + l_ema_55 + l_ema_89 + l_ema_144) / 8
+
+
+ema_basis = (h_ema_avg + l_ema_avg) / 2
+
+
+p_ema_basis = plot(_ema ? ema_basis : na, color=request.security(syminfo.tickerid, i_ema_tf, close > ema_basis[1] ? ema_bull_color : close < ema_basis[1] ? ema_bear_color : na), linewidth=2, title='EMA Basis')
+p_ema_h = plot(_ema ? h_ema_avg : na, title='EMA-High', display=display.none)
+p_ema_l = plot(_ema ? l_ema_avg : na, title='EMA-Low', display=display.none)
+
+fill(p_ema_h, p_ema_l, greater_ema_color, title='EMA Channel')
+
+var ema_lbl_1h = lbl_ema ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_ema, textcolor=text_color_ema, style=label.style_label_left) : na
+label.set_xy(ema_lbl_1h, bar_index + lbl_dist_ema, request.security(syminfo.tickerid, '60', ema_basis))
+
+var ema_lbl_4h = lbl_ema ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_ema, textcolor=text_color_ema, style=label.style_label_left) : na
+label.set_xy(ema_lbl_4h, bar_index + lbl_dist_ema, request.security(syminfo.tickerid, '240', ema_basis))
+
+var ema_lbl_D = lbl_ema ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_ema, textcolor=text_color_ema, style=label.style_label_left) : na
+label.set_xy(ema_lbl_D, bar_index + lbl_dist_ema, request.security(syminfo.tickerid, 'D', ema_basis))
+
+var ema_lbl_4D = lbl_ema ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_ema, textcolor=text_color_ema, style=label.style_label_left) : na
+label.set_xy(ema_lbl_4D, bar_index + lbl_dist_ema, request.security(syminfo.tickerid, '4D', ema_basis))
+
+var ema_lbl_W = lbl_ema ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_ema, textcolor=text_color_ema, style=label.style_label_left) : na
+label.set_xy(ema_lbl_W, bar_index + lbl_dist_ema, request.security(syminfo.tickerid, 'W', ema_basis))
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////HMA
+_hma = input.bool(defval=false, title='', group='HMA')
+i_hma_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='HMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+hma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='HMA')
+hma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='HMA')
+greater_hma_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='HMA')
+
+lbl_hma = input.bool(defval=false, title='Labels On or Off', group='HMA')
+lbl_color_hma = input.color(color.new(color.gray, 90), title='Label Color', group='HMA')
+text_color_hma = input.color(#b2b5be, title='Text Color', group='HMA')
+lbl_dist_hma = input.int(defval=21, title='Label Distance', group='HMA')
+
+
+h_hma_8 = ta.hma(high, 8)
+h_hma_13 = ta.hma(high, 13)
+h_hma_21 = ta.hma(high, 21)
+h_hma_34 = ta.hma(high, 34)
+h_hma_55 = ta.hma(high, 55)
+h_hma_89 = ta.hma(high, 89)
+h_hma_144 = ta.hma(high, 144)
+h_hma_233 = ta.hma(high, 233)
+
+h_hma_avg = (h_hma_8 + h_hma_13 + h_hma_21 + h_hma_34 + h_hma_55 + h_hma_89 + h_hma_144 + h_hma_233) / 8
+
+l_hma_8 = ta.hma(low, 8)
+l_hma_13 = ta.hma(low, 13)
+l_hma_21 = ta.hma(low, 21)
+l_hma_34 = ta.hma(low, 34)
+l_hma_55 = ta.hma(low, 55)
+l_hma_89 = ta.hma(low, 89)
+l_hma_144 = ta.hma(low, 144)
+l_hma_233 = ta.hma(low, 233)
+
+l_hma_avg = (l_hma_8 + l_hma_13 + l_hma_21 + l_hma_34 + l_hma_55 + l_hma_89 + l_hma_144 + l_hma_233) / 8
+
+
+hma_basis = (h_hma_avg + l_hma_avg) / 2
+
+
+p_hma_basis = plot(_hma ? hma_basis : na, color=request.security(syminfo.tickerid, i_hma_tf, close > hma_basis[1] ? hma_bull_color : close < hma_basis[1] ? hma_bear_color : na), linewidth=2, title='HMA Basis')
+p_hma_h = plot(_hma ? h_hma_avg : na, title='HMA-High', display=display.none)
+p_hma_l = plot(_hma ? l_hma_avg : na, title='HMA-Low', display=display.none)
+
+fill(p_hma_h, p_hma_l, greater_hma_color, title='HMA Channel')
+
+var hma_lbl_1h = lbl_hma ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_hma, textcolor=text_color_hma, style=label.style_label_left) : na
+label.set_xy(hma_lbl_1h, bar_index + lbl_dist_hma, request.security(syminfo.tickerid, '60', hma_basis))
+
+var hma_lbl_4h = lbl_hma ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_hma, textcolor=text_color_hma, style=label.style_label_left) : na
+label.set_xy(hma_lbl_4h, bar_index + lbl_dist_hma, request.security(syminfo.tickerid, '240', hma_basis))
+
+var hma_lbl_D = lbl_hma ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_hma, textcolor=text_color_hma, style=label.style_label_left) : na
+label.set_xy(hma_lbl_D, bar_index + lbl_dist_hma, request.security(syminfo.tickerid, 'D', hma_basis))
+
+var hma_lbl_4D = lbl_hma ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_hma, textcolor=text_color_hma, style=label.style_label_left) : na
+label.set_xy(hma_lbl_4D, bar_index + lbl_dist_hma, request.security(syminfo.tickerid, '4D', hma_basis))
+
+var hma_lbl_W = lbl_hma ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_hma, textcolor=text_color_hma, style=label.style_label_left) : na
+label.set_xy(hma_lbl_W, bar_index + lbl_dist_hma, request.security(syminfo.tickerid, 'W', hma_basis))
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////RMA
+_rma = input.bool(defval=false, title='', group='RMA')
+i_rma_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='RMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+rma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='RMA')
+rma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='RMA')
+greater_rma_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='RMA')
+
+lbl_rma = input.bool(defval=false, title='Labels On or Off', group='RMA')
+lbl_color_rma = input.color(color.new(color.gray, 90), title='Label Color', group='RMA')
+text_color_rma = input.color(#b2b5be, title='Text Color', group='RMA')
+lbl_dist_rma = input.int(defval=21, title='Label Distance', group='RMA')
+
+h_rma_5 = ta.rma(high, 5)
+h_rma_8 = ta.rma(high, 8)
+h_rma_13 = ta.rma(high, 13)
+h_rma_21 = ta.rma(high, 21)
+h_rma_34 = ta.rma(high, 34)
+h_rma_55 = ta.rma(high, 55)
+h_rma_89 = ta.rma(high, 89)
+h_rma_144 = ta.rma(high, 144)
+
+h_rma_avg = (h_rma_5 + h_rma_8 + h_rma_13 + h_rma_21 + h_rma_34 + h_rma_55 + h_rma_89 + h_rma_144) / 8
+
+l_rma_5 = ta.rma(low, 5)
+l_rma_8 = ta.rma(low, 8)
+l_rma_13 = ta.rma(low, 13)
+l_rma_21 = ta.rma(low, 21)
+l_rma_34 = ta.rma(low, 34)
+l_rma_55 = ta.rma(low, 55)
+l_rma_89 = ta.rma(low, 89)
+l_rma_144 = ta.rma(low, 144)
+
+l_rma_avg = (l_rma_5 + l_rma_8 + l_rma_13 + l_rma_21 + l_rma_34 + l_rma_55 + l_rma_89 + l_rma_144) / 8
+
+
+rma_basis = (h_rma_avg + l_rma_avg) / 2
+
+
+p_rma_basis = plot(_rma ? rma_basis : na, color=request.security(syminfo.tickerid, i_rma_tf, close > rma_basis[1] ? rma_bull_color : close < rma_basis[1] ? rma_bear_color : na), linewidth=2, title='RMA Basis')
+p_rma_h = plot(_rma ? h_rma_avg : na, title='RMA-High', display=display.none)
+p_rma_l = plot(_rma ? l_rma_avg : na, title='RMA-Low', display=display.none)
+
+fill(p_rma_h, p_rma_l, greater_rma_color, title='RMA Channel')
+
+var rma_lbl_1h = lbl_rma ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_rma, textcolor=text_color_rma, style=label.style_label_left) : na
+label.set_xy(rma_lbl_1h, bar_index + lbl_dist_rma, request.security(syminfo.tickerid, '60', rma_basis))
+
+var rma_lbl_4h = lbl_rma ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_rma, textcolor=text_color_rma, style=label.style_label_left) : na
+label.set_xy(rma_lbl_4h, bar_index + lbl_dist_rma, request.security(syminfo.tickerid, '240', rma_basis))
+
+var rma_lbl_D = lbl_rma ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_rma, textcolor=text_color_rma, style=label.style_label_left) : na
+label.set_xy(rma_lbl_D, bar_index + lbl_dist_rma, request.security(syminfo.tickerid, 'D', rma_basis))
+
+var rma_lbl_4D = lbl_rma ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_rma, textcolor=text_color_rma, style=label.style_label_left) : na
+label.set_xy(rma_lbl_4D, bar_index + lbl_dist_rma, request.security(syminfo.tickerid, '4D', rma_basis))
+
+var rma_lbl_W = lbl_rma ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_rma, textcolor=text_color_rma, style=label.style_label_left) : na
+label.set_xy(rma_lbl_W, bar_index + lbl_dist_rma, request.security(syminfo.tickerid, 'W', rma_basis))
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////SMA
+_sma = input.bool(defval=true, title='', group='SMA')
+i_sma_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='SMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+sma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='SMA')
+sma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='SMA')
+greater_sma_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='SMA')
+
+lbl_sma = input.bool(defval=true, title='Labels On or Off', group='SMA')
+lbl_color_sma = input.color(color.new(color.gray, 90), title='Label Color', group='SMA')
+text_color_sma = input.color(#b2b5be, title='Text Color', group='SMA')
+lbl_dist_sma = input.int(defval=21, title='Label Distance', group='SMA')
+
+
+h_sma_5 = ta.sma(high, 5)
+h_sma_8 = ta.sma(high, 8)
+h_sma_13 = ta.sma(high, 13)
+h_sma_21 = ta.sma(high, 21)
+h_sma_34 = ta.sma(high, 34)
+h_sma_55 = ta.sma(high, 55)
+h_sma_89 = ta.sma(high, 89)
+h_sma_144 = ta.sma(high, 144)
+
+h_sma_avg = (h_sma_5 + h_sma_8 + h_sma_13 + h_sma_21 + h_sma_34 + h_sma_55 + h_sma_89 + h_sma_144) / 8
+
+l_sma_5 = ta.sma(low, 5)
+l_sma_8 = ta.sma(low, 8)
+l_sma_13 = ta.sma(low, 13)
+l_sma_21 = ta.sma(low, 21)
+l_sma_34 = ta.sma(low, 34)
+l_sma_55 = ta.sma(low, 55)
+l_sma_89 = ta.sma(low, 89)
+l_sma_144 = ta.sma(low, 144)
+
+l_sma_avg = (l_sma_5 + l_sma_8 + l_sma_13 + l_sma_21 + l_sma_34 + l_sma_55 + l_sma_89 + l_sma_144) / 8
+
+
+sma_basis = (h_sma_avg + l_sma_avg) / 2
+
+
+p_sma_basis = plot(_sma ? sma_basis : na, color=request.security(syminfo.tickerid, i_sma_tf, close > sma_basis[1] ? sma_bull_color : close < sma_basis[1] ? sma_bear_color : na), linewidth=2, title='SMA Basis')
+p_sma_h = plot(_sma ? h_sma_avg : na, title='SMA-High', display=display.none)
+p_sma_l = plot(_sma ? l_sma_avg : na, title='SMA-Low', display=display.none)
+
+fill(p_sma_h, p_sma_l, greater_sma_color, title='SMA Channel')
+
+var sma_lbl_1h = lbl_sma ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_sma, textcolor=text_color_sma, style=label.style_label_left) : na
+label.set_xy(sma_lbl_1h, bar_index + lbl_dist_sma, request.security(syminfo.tickerid, '60', sma_basis))
+
+var sma_lbl_4h = lbl_sma ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_sma, textcolor=text_color_sma, style=label.style_label_left) : na
+label.set_xy(sma_lbl_4h, bar_index + lbl_dist_sma, request.security(syminfo.tickerid, '240', sma_basis))
+
+var sma_lbl_D = lbl_sma ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_sma, textcolor=text_color_sma, style=label.style_label_left) : na
+label.set_xy(sma_lbl_D, bar_index + lbl_dist_sma, request.security(syminfo.tickerid, 'D', sma_basis))
+
+var sma_lbl_4D = lbl_sma ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_sma, textcolor=text_color_sma, style=label.style_label_left) : na
+label.set_xy(sma_lbl_4D, bar_index + lbl_dist_sma, request.security(syminfo.tickerid, '4D', sma_basis))
+
+var sma_lbl_W = lbl_sma ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_sma, textcolor=text_color_sma, style=label.style_label_left) : na
+label.set_xy(sma_lbl_W, bar_index + lbl_dist_sma, request.security(syminfo.tickerid, 'W', sma_basis))
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////WMA
+_wma = input.bool(defval=false, title='', group='WMA')
+i_wma_tf = input.timeframe(title='Resolution for Basis Color', defval='', group='WMA', tooltip='Pick your time frame and the basis will be colored based on if price is above or below that previous timeframe\'s close.')
+wma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='WMA')
+wma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='WMA')
+greater_wma_color = input.color(color.new(#b2b5be, 85), title='Channel Color', inline='gma', group='WMA')
+
+lbl_wma = input.bool(defval=false, title='Labels On or Off', group='WMA')
+lbl_color_wma = input.color(color.new(color.gray, 90), title='Label Color', group='WMA')
+text_color_wma = input.color(#b2b5be, title='Text Color', group='WMA')
+lbl_dist_wma = input.int(defval=21, title='Label Distance', group='WMA')
+
+
+h_wma_5 = ta.wma(high, 5)
+h_wma_8 = ta.wma(high, 8)
+h_wma_13 = ta.wma(high, 13)
+h_wma_21 = ta.wma(high, 21)
+h_wma_34 = ta.wma(high, 34)
+h_wma_55 = ta.wma(high, 55)
+h_wma_89 = ta.wma(high, 89)
+h_wma_144 = ta.wma(high, 144)
+
+h_wma_avg = (h_wma_5 + h_wma_8 + h_wma_13 + h_wma_21 + h_wma_34 + h_wma_55 + h_wma_89 + h_wma_144) / 8
+
+l_wma_5 = ta.wma(low, 5)
+l_wma_8 = ta.wma(low, 8)
+l_wma_13 = ta.wma(low, 13)
+l_wma_21 = ta.wma(low, 21)
+l_wma_34 = ta.wma(low, 34)
+l_wma_55 = ta.wma(low, 55)
+l_wma_89 = ta.wma(low, 89)
+l_wma_144 = ta.wma(low, 144)
+
+l_wma_avg = (l_wma_5 + l_wma_8 + l_wma_13 + l_wma_21 + l_wma_34 + l_wma_55 + l_wma_89 + l_wma_144) / 8
+
+
+wma_basis = (h_wma_avg + l_wma_avg) / 2
+
+
+p_wma_basis = plot(_wma ? wma_basis : na, color=request.security(syminfo.tickerid, i_wma_tf, close > wma_basis[1] ? wma_bull_color : close < wma_basis[1] ? wma_bear_color : na), linewidth=2, title='WMA Basis')
+p_wma_h = plot(_wma ? h_wma_avg : na, title='WMA-High', display=display.none)
+p_wma_l = plot(_wma ? l_wma_avg : na, title='WMA-Low', display=display.none)
+
+fill(p_wma_h, p_wma_l, greater_wma_color, title='WMA Channel')
+
+var wma_lbl_1h = lbl_wma ? label.new(x=na, y=na, text='1h', xloc=xloc.bar_index, color=lbl_color_wma, textcolor=text_color_wma, style=label.style_label_left) : na
+label.set_xy(wma_lbl_1h, bar_index + lbl_dist_wma, request.security(syminfo.tickerid, '60', wma_basis))
+
+var wma_lbl_4h = lbl_wma ? label.new(x=na, y=na, text='4h', xloc=xloc.bar_index, color=lbl_color_wma, textcolor=text_color_wma, style=label.style_label_left) : na
+label.set_xy(wma_lbl_4h, bar_index + lbl_dist_wma, request.security(syminfo.tickerid, '240', wma_basis))
+
+var wma_lbl_D = lbl_wma ? label.new(x=na, y=na, text='D', xloc=xloc.bar_index, color=lbl_color_wma, textcolor=text_color_wma, style=label.style_label_left) : na
+label.set_xy(wma_lbl_D, bar_index + lbl_dist_wma, request.security(syminfo.tickerid, 'D', wma_basis))
+
+var wma_lbl_4D = lbl_wma ? label.new(x=na, y=na, text='4D', xloc=xloc.bar_index, color=lbl_color_wma, textcolor=text_color_wma, style=label.style_label_left) : na
+label.set_xy(wma_lbl_4D, bar_index + lbl_dist_wma, request.security(syminfo.tickerid, '4D', wma_basis))
+
+var wma_lbl_W = lbl_wma ? label.new(x=na, y=na, text='W', xloc=xloc.bar_index, color=lbl_color_wma, textcolor=text_color_wma, style=label.style_label_left) : na
+label.set_xy(wma_lbl_W, bar_index + lbl_dist_wma, request.security(syminfo.tickerid, 'W', wma_basis))
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////TRAILING SIMPLE UMA
+i_trail = input.bool(defval=false, title='I Would Like to Add a Trailing Moving Average.', group='Trailing UMA', tooltip='Simple UMA applied to the UMA of your choice in the dropdown box below.')
+i_uma_trail = input.string(defval='SMA', options=['ALMA', 'EMA', 'HMA', 'RMA', 'SMA', 'WMA'], title='Which UMA is it Trailing?', group='Trailing UMA')
+t_uma_bull_color = input.color(color.new(#00bcd4, 50), title='Bullish', inline='basis', group='Trailing UMA')
+t_uma_bear_color = input.color(color.new(#e91e63, 50), title='Bearish', inline='basis', group='Trailing UMA')
+uma_trail = i_uma_trail == 'ALMA' ? alma_basis : i_uma_trail == 'EMA' ? ema_basis : i_uma_trail == 'HMA' ? hma_basis : i_uma_trail == 'RMA' ? rma_basis : i_uma_trail == 'SMA' ? sma_basis : i_uma_trail == 'WMA' ? wma_basis : na
+
+t_uma_144 = ta.sma(uma_trail, 144)
+t_uma_89 = ta.sma(uma_trail, 89)
+t_uma_55 = ta.sma(uma_trail, 55)
+t_uma_34 = ta.sma(uma_trail, 34)
+t_uma_21 = ta.sma(uma_trail, 21)
+t_uma_13 = ta.sma(uma_trail, 13)
+t_uma_8 = ta.sma(uma_trail, 8)
+t_uma_5 = ta.sma(uma_trail, 5)
+t_uma_avg = (t_uma_5 + t_uma_8 + t_uma_13 + t_uma_21 + t_uma_34 + t_uma_55 + t_uma_89 + t_uma_144) / 8
+
+p_uma_trail = plot(i_trail ? t_uma_avg : na, color=uma_trail > t_uma_avg ? t_uma_bull_color : t_uma_bear_color, linewidth=2, title='Trailing UMA')
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////DEVIATION BANDS
+mult = input.float(defval=2.0, step=0.1, title='StdDev', group='Deviation Bands')
+
+
+////INPUTS AND SELECTION FOR CALCULATION OF BANDS
+i_h_ma_avg = input.string(defval='SMA', options=['ALMA', 'EMA', 'HMA', 'RMA', 'SMA', 'WMA'], title='UMA Input for Calculation of Upper Deviation Bands', group='Deviation Bands')
+h_ma_avg = i_h_ma_avg == 'ALMA' ? h_alma_avg : i_h_ma_avg == 'EMA' ? h_ema_avg : i_h_ma_avg == 'HMA' ? h_hma_avg : i_h_ma_avg == 'RMA' ? h_rma_avg : i_h_ma_avg == 'SMA' ? h_sma_avg : i_h_ma_avg == 'WMA' ? h_wma_avg : na
+
+i_l_ma_avg = input.string(defval='SMA', options=['ALMA', 'EMA', 'HMA', 'RMA', 'SMA', 'WMA'], title='UMA Input for Calculation of Lower Deviation Bands', group='Deviation Bands')
+l_ma_avg = i_l_ma_avg == 'ALMA' ? l_alma_avg : i_l_ma_avg == 'EMA' ? l_ema_avg : i_l_ma_avg == 'HMA' ? l_hma_avg : i_l_ma_avg == 'RMA' ? l_rma_avg : i_l_ma_avg == 'SMA' ? l_sma_avg : i_l_ma_avg == 'WMA' ? l_wma_avg : na
+
+
+////COLOR INPUTS FOR BANDS
+upper_band_color = input.color(color.new(color.red, 35), title='Upper Band', inline='upper', group='Deviation Bands')
+inner_upper_band_color = input.color(color.new(color.gray, 35), title='Inner Upper Band', inline='upper', group='Deviation Bands')
+
+lower_band_color = input.color(color.new(color.blue, 35), title='Lower Band', inline='lower', group='Deviation Bands')
+inner_lower_band_color = input.color(color.new(color.gray, 35), title='Inner Lower Band', inline='lower', group='Deviation Bands')
+
+upper_band_fill = input.color(color.new(#787b86, 85), title='Upper Fill', inline='dev fill', group='Deviation Bands')
+lower_band_fill = input.color(color.new(#787b86, 85), title='Lower Fill', inline='dev fill', group='Deviation Bands')
+
+
+////LENGTH AND BANDS CALCULATIONS
+len = (5 + 8 + 13 + 21 + 34 + 55 + 89 + 144) / 8
+
+high_dev = mult * ta.stdev(high, len)
+low_dev = mult * ta.stdev(low, len)
+
+upper_band = h_ma_avg + low_dev
+inner_upper_band = l_ma_avg + high_dev
+
+inner_lower_band = h_ma_avg - high_dev
+lower_band = l_ma_avg - low_dev
+
+
+////PLOTS AND FILLS
+p_upper = plot(upper_band, color=upper_band_color, title='Upper Band', display=display.none)
+p_inner_upper = plot(inner_upper_band, color=inner_upper_band_color, title='Inner Upper Band', display=display.none)
+p_inner_lower = plot(inner_lower_band, color=inner_lower_band_color, title='Inner Lower Band', display=display.none)
+p_lower = plot(lower_band, color=lower_band_color, title='Lower Band', display=display.none)
+
+fill(p_upper, p_inner_upper, upper_band_fill, title='Upper Band Fill')
+fill(p_lower, p_inner_lower, lower_band_fill, title='Lower Band Fill')
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////200 MOVING AVERAGE AVERAGES
+ma = input.bool(defval=false, title='', group='200 MA AVGS', tooltip='An average of the 200 period EMA, SMA, and Kijun.')
+ma_pos = input.color(color.new(color.blue, 50), title='Bullish', inline='ma', group='200 MA AVGS')
+ma_neg = input.color(color.new(color.red, 50), title='Bearish', inline='ma', group='200 MA AVGS')
+
+
+kijun = math.avg(ta.lowest(200), ta.highest(200))
+
+ma_avgs = (ta.ema(close, 200) + ta.sma(close, 200) + kijun) / 3
+ma_color = close > ma_avgs ? ma_pos : ma_neg
+
+plot(ma ? ma_avgs : na, color=ma_color, linewidth=2, title='200 MA AVG')
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////ALERT CONDITIONS
+alertcondition(ta.cross(close, inner_upper_band), title='Price at Upper UMA Band', message='Price is at the Upper UMA Band.')
+alertcondition(ta.cross(close, inner_lower_band), title='Price at Lower UMA Band', message='Price is at the Lower UMA Band.')
+alertcondition(ta.cross(close, alma_basis), title='Price Crossing ALMA-UMA', message='Price has crossed the ALMA-UMA.')
+alertcondition(ta.cross(close, ema_basis), title='Price Crossing EMA-UMA', message='Price has crossed the EMA-UMA.')
+alertcondition(ta.cross(close, hma_basis), title='Price Crossing HMA-UMA', message='Price has crossed the HMA-UMA.')
+alertcondition(ta.cross(close, rma_basis), title='Price Crossing RMA-UMA', message='Price has crossed the RMA-UMA.')
+alertcondition(ta.cross(close, sma_basis), title='Price Crossing SMA-UMA', message='Price has crossed the SMA-UMA.')
+alertcondition(ta.cross(close, wma_basis), title='Price Crossing WMA-UMA', message='Price has crossed the WMA-UMA.')
+alertcondition(ta.cross(close, ma_avgs), title='Price crossed 200 MA', message='Price has crossed the 200 MA.')
+
