@@ -1,3 +1,5 @@
+//@version = 5
+
 strategy('MRC+MTF_V1 ', overlay=true, pyramiding=1, commission_type=strategy.commission.percent, commission_value=0.04, initial_capital=1000, default_qty_type=strategy.cash, default_qty_value=1000, currency=currency.USD)
 
 //************************************************************************************************************
@@ -5,80 +7,80 @@ strategy('MRC+MTF_V1 ', overlay=true, pyramiding=1, commission_type=strategy.com
 //************************************************************************************************************
 
 indiSet     = input(false,              "═════════ MRC Parameter ════════")
-source      = input(hlc3,               title="Price Source", type=input.source)
-type        = input("SuperSmoother",    title="Filter Type", options=["SuperSmoother", "Ehlers EMA", "Gaussian", "Butterworth", "BandStop", "SMA", "EMA", "RMA"])
-length      = input(200,                title="Lookback Period",minval=1)
-innermult   = input(1.0,                title="Inner Channel Size Multiplier", minval = 0.1)
-outermult   = input(2.0,              title="Outer Channel Size Multiplier", minval = 0.1)
+source      = input.source(hlc3,               title="Price Source")
+type        = input.string("SuperSmoother",    title="Filter Type", options=["SuperSmoother", "Ehlers EMA", "Gaussian", "Butterworth", "BandStop", "SMA", "EMA", "RMA"])
+length      = input.int(200,                title="Lookback Period",minval=1)
+innermult   = input.float(1.0,                title="Inner Channel Size Multiplier", minval = 0.1)
+outermult   = input.float(2.0,              title="Outer Channel Size Multiplier", minval = 0.1)
 
 ChartSet    = input(false,              "═════════ Chart Setting ════════")
 drawchannel = input(true,               title="Draw Channel")
 displayzone = input(true,               title="Draw Zone (With Channel)")
-zonetransp  = input(60,                 title="Zone Transparency", minval=0, maxval=100)
+zonetransp  = input.int(60,                 title="Zone Transparency", minval=0, maxval=100)
 displayline = input(true,               title="Display Line Extension")
 
 MTFSet      = input(false,              "═════════ MTF Setting ════════")
 enable_mtf  = input(true,               title="Enable Multiple TimeFrame Analysis")
-mtf_disp_typ= input("On Hover",         title="MTF Display Type", options=["Always Display", "On Hover"])
-mtf_typ     = input("Auto",             title="Multiple TimeFrame Type", options=["Auto", "Custom"])
-mtf_lvl1    = input("D",                title="Custom MTF Level 1", type=input.resolution)
-mtf_lvl2    = input("W",                title="Custom MTF Level 2", type=input.resolution)
+mtf_disp_typ= input.string("On Hover",         title="MTF Display Type", options=["Always Display", "On Hover"])
+mtf_typ     = input.string("Auto",             title="Multiple TimeFrame Type", options=["Auto", "Custom"])
+mtf_lvl1    = input.timeframe("D",                title="Custom MTF Level 1")
+mtf_lvl2    = input.timeframe("W",                title="Custom MTF Level 2")
 
 //MTF inputs
 src = close
 useCurrentRes = input(true, title="Use Current Chart Resolution?")
-resCustom = input(title="Use Different Timeframe? Uncheck Box Above", type=resolution, defval="D")
+resCustom = input.timeframe(title="Use Different Timeframe? Uncheck Box Above", defval="D")
 len = input(20, title="Moving Average Length - LookBack Period")
-atype = input(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+atype = input.float(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
 cc = input(true,title="Change Color Based On Direction?")
-smoothe = input(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
-doma2 = input(false, title="Optional 2nd Moving Average")
+smoothe = input.float(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
+doma2 = input.bool(false, title="Optional 2nd Moving Average")
 len2 = input(50, title="Moving Average Length - Optional 2nd MA")
-atype2 = input(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+atype2 = input.float(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
 cc2 = input(true,title="Change Color Based On Direction 2nd MA?")
 warn = input(false, title="***You Can Turn On The Show Dots Parameter Below Without Plotting 2nd MA to See Crosses***")
 warn2 = input(false, title="***If Using Cross Feature W/O Plotting 2ndMA - Make Sure 2ndMA Parameters are Set Correctly***")
 sd = input(false, title="Show Dots on Cross of Both MA's")
 
 
-res = useCurrentRes ? period : resCustom
+res = useCurrentRes ? timeframe.period : resCustom
 
 //hull ma definition
-hullma = wma(2*wma(src, len/2)-wma(src, len), round(sqrt(len)))
+hullma = ta.wma(2*ta.wma(src, len/2)-ta.wma(src, len), math.round(math.sqrt(len)))
 //TEMA definition
-ema1 = ema(src, len)
-ema2 = ema(ema1, len)
-ema3 = ema(ema2, len)
+ema1 = ta.ema(src, len)
+ema2 = ta.ema(ema1, len)
+ema3 = ta.ema(ema2, len)
 tema = 3 * (ema1 - ema2) + ema3
 
-avg = atype == 1 ? sma(src,len) : atype == 2 ? ema(src,len) : atype == 3 ? wma(src,len) : atype == 4 ? hullma : atype == 5 ? vwma(src, len) : atype == 6 ? rma(src,len) : tema
+avg = atype == 1 ? ta.sma(src,len) : atype == 2 ? ta.ema(src,len) : atype == 3 ? ta.wma(src,len) : atype == 4 ? hullma : atype == 5 ? ta.vwma(src, len) : atype == 6 ? ta.rma(src,len) : tema
 //2nd Ma - hull ma definition
-hullma2 = wma(2*wma(src, len2/2)-wma(src, len2), round(sqrt(len2)))
+hullma2 = ta.wma(2*ta.wma(src, len2/2)-ta.wma(src, len2), math.round(math.sqrt(len2)))
 //2nd MA TEMA definition
-sema1 = ema(src, len2)
-sema2 = ema(sema1, len2)
-sema3 = ema(sema2, len2)
+sema1 = ta.ema(src, len2)
+sema2 = ta.ema(sema1, len2)
+sema3 = ta.ema(sema2, len2)
 stema = 3 * (sema1 - sema2) + sema3
 
-avg2 = atype2 == 1 ? sma(src,len2) : atype2 == 2 ? ema(src,len2) : atype2 == 3 ? wma(src,len2) : atype2 == 4 ? hullma2 : atype2 == 5 ? vwma(src, len2) : atype2 == 6 ? rma(src,len2) : tema
+avg2 = atype2 == 1 ? ta.sma(src,len2) : atype2 == 2 ? ta.ema(src,len2) : atype2 == 3 ? ta.wma(src,len2) : atype2 == 4 ? hullma2 : atype2 == 5 ? ta.vwma(src, len2) : atype2 == 6 ? ta.rma(src,len2) : tema
 
 out = avg 
 out_two = avg2
 
-out1 = security(tickerid, res, out)
-out2 = security(tickerid, res, out_two)
+out1 = request.security(syminfo.tickerid, res, out)
+out2 = request.security(syminfo.tickerid, res, out_two)
 
 ma_up = out1 >= out1[smoothe]
 ma_down = out1 < out1[smoothe]
 
-col = cc ? ma_up ? lime : ma_down ? red : aqua : aqua
-col2 = cc2 ? ma_up ? lime : ma_down ? red : aqua : aqua
+col = cc ? ma_up ? color.lime : ma_down ? color.red : color.aqua : color.aqua
+col2 = cc2 ? ma_up ? color.lime : ma_down ? color.red : color.aqua : color.aqua
 
 circleYPosition = out2
 
-plot(out1, title="Multi-Timeframe Moving Avg", style=line, linewidth=4, color = col)
-plot(doma2 and out2 ? out2 : na, title="2nd Multi-TimeFrame Moving Average", style=circles, linewidth=4, color=col2)
-plot(sd and cross(out1, out2) ? circleYPosition : na,style=cross, linewidth=5, color=yellow)
+plot(out1, title="Multi-Timeframe Moving Avg", style=plot.style_line, linewidth=4, color = col)
+plot(doma2 and out2 ? out2 : na, title="2nd Multi-TimeFrame Moving Average", style=plot.style_circles, linewidth=4, color=col2)
+plot(sd and ta.cross(out1, out2) ? circleYPosition : na,style=plot.style_cross, linewidth=5, color=color.yellow)
 
 
 
@@ -87,7 +89,7 @@ plot(sd and cross(out1, out2) ? circleYPosition : na,style=cross, linewidth=5, c
 //************************************************************************************************************
 // Functions Start {
 //************************************************************************************************************
-var pi          = 2 * asin(1)
+var pi          = 2 * math.asin(1)
 var mult        = pi * innermult
 var mult2       = pi * outermult
 var gradsize    = 0.5
@@ -110,27 +112,27 @@ SAK_smoothing(_type, _src, _length) =>
     cycle       = 2 * pi / _length
     
     if _type == "Ehlers EMA"
-        alpha   := (cos(cycle) + sin(cycle) - 1) / cos(cycle)
+        alpha   := (math.cos(cycle) + math.sin(cycle) - 1) / math.cos(cycle)
         b0      := alpha
         a1      := 1 - alpha
     if _type == "Gaussian"
-        beta    := 2.415 * (1 - cos(cycle))
-        alpha   := -beta + sqrt((beta * beta) + (2 * beta))
+        beta    := 2.415 * (1 - math.cos(cycle))
+        alpha   := -beta + math.sqrt((beta * beta) + (2 * beta))
         c0      := alpha * alpha
         a1      := 2 * (1 - alpha)
         a2      := -(1 - alpha) * (1 - alpha)
     if _type == "Butterworth"
-        beta    := 2.415 * (1 - cos(cycle))
-        alpha   := -beta + sqrt((beta * beta) + (2 * beta))
+        beta    := 2.415 * (1 - math.cos(cycle))
+        alpha   := -beta + math.sqrt((beta * beta) + (2 * beta))
         c0      := alpha * alpha / 4
         b1      := 2
         b2      := 1
         a1      := 2 * (1 - alpha)
         a2      := -(1 - alpha) * (1 - alpha)
     if _type == "BandStop"
-        beta    := cos(cycle)
-        gamma   := 1 / cos(cycle*2*0.1) // delta default to 0.1. Acceptable delta -- 0.05<d<0.5
-        alpha   := gamma - sqrt((gamma * gamma) - 1)
+        beta    := math.cos(cycle)
+        gamma   := 1 / math.cos(cycle*2*0.1) // delta default to 0.1. Acceptable delta -- 0.05<d<0.5
+        alpha   := gamma - math.sqrt((gamma * gamma) - 1)
         c0      := (1 + alpha) / 2
         b1      := -2 * beta
         b2      := 1
@@ -157,9 +159,9 @@ SAK_smoothing(_type, _src, _length) =>
 // SuperSmoother Function
 //-----------------------
 supersmoother(_src, _length) =>
-    s_a1    = exp(-sqrt(2) * pi / _length)
-    s_b1    = 2 * s_a1 * cos(sqrt(2) * pi / _length)
-    s_c3    = -pow(s_a1, 2)
+    s_a1    = math.exp(-math.sqrt(2) * pi / _length)
+    s_b1    = 2 * s_a1 * math.cos(math.sqrt(2) * pi / _length)
+    s_c3    = -math.pow(s_a1, 2)
     s_c2    = s_b1
     s_c1    = 1 - s_c2 - s_c3
     ss      = 0.0
@@ -210,7 +212,7 @@ get_tf(_lvl)=>
 get_mrc()=>
     v_condition   = 0
     v_meanline    = source
-    v_meanrange   = supersmoother(tr, length)
+    v_meanrange   = supersmoother(true, length)
     
     //-- Get Line value
     if(type == "SuperSmoother")
@@ -287,11 +289,11 @@ get_stat(_cond) =>
 // Chart Drawing Function
 //-----------------------
 format_price(x) =>
-    y = tostring(x, "0.00000")
+    y = str.tostring(x, "0.00000")
     if(x>10)
-        y := tostring(x, "0.000")
+        y := str.tostring(x, "0.000")
     if(x>1000)
-        y := tostring(x, "0.00")
+        y := str.tostring(x, "0.00")
     y
 
 f_PriceLine(_ref, linecol) =>
@@ -303,7 +305,7 @@ f_PriceLine(_ref, linecol) =>
 
 f_MTFLabel(_txt, _yloc) =>
     label.new(
-      x         = time + round(change(time)*20),
+      x         = time + math.round(ta.change(time)*20),
       y         = _yloc, 
       xloc      = xloc.bar_time, 
       text      = mtf_disp_typ == "Always Display" ? _txt : "Check MTF",
@@ -324,8 +326,8 @@ var tf_1 = get_tf(1)
 var tf_2 = get_tf(2)
 
 [meanline, meanrange, upband1, loband1, upband2, loband2, condition]                                    = get_mrc()
-[mtf1_meanline, mtf1_meanrange, mtf1_upband1, mtf1_loband1, mtf1_upband2, mtf1_loband2, mtf1_condition] = security(syminfo.tickerid, tf_1, get_mrc())
-[mtf2_meanline, mtf2_meanrange, mtf2_upband1, mtf2_loband1, mtf2_upband2, mtf2_loband2, mtf2_condition] = security(syminfo.tickerid, tf_2, get_mrc())
+[mtf1_meanline, mtf1_meanrange, mtf1_upband1, mtf1_loband1, mtf1_upband2, mtf1_loband2, mtf1_condition] = request.security(syminfo.tickerid, tf_1, get_mrc())
+[mtf2_meanline, mtf2_meanrange, mtf2_upband1, mtf2_loband1, mtf2_upband2, mtf2_loband2, mtf2_condition] = request.security(syminfo.tickerid, tf_2, get_mrc())
 
 //************************************************************************************************************
 // Drawing Start {
@@ -336,11 +338,11 @@ float p_loband1   = drawchannel ? loband1    : na
 float p_upband2   = drawchannel ? upband2    : na
 float p_loband2   = drawchannel ? loband2    : na
 
-z  = plot(p_meanline, color=#FFCD00,     style=plot.style_line,    title=" Mean", linewidth=2)
-x1 = plot(p_upband1,  color=color.green, style=plot.style_circles, title=" R1", linewidth=1, transp=50)
-x2 = plot(p_loband1,  color=color.green, style=plot.style_circles, title=" S1", linewidth=1, transp=50)
-y1 = plot(p_upband2,  color=color.red,   style=plot.style_line,    title=" R2", linewidth=1, transp=50)
-y2 = plot(p_loband2,  color=color.red,   style=plot.style_line,    title=" S2", linewidth=1, transp=50)
+z  = plot(p_meanline, color=color.new(#FFCD00,100),     style=plot.style_line,    title=" Mean", linewidth=2)
+x1 = plot(p_upband1,  color=color.new(color.green,50), style=plot.style_circles, title=" R1", linewidth=1)
+x2 = plot(p_loband1,  color=color.new(color.green,50), style=plot.style_circles, title=" S1", linewidth=1)
+y1 = plot(p_upband2,  color=color.new(color.red,50),   style=plot.style_line,    title=" R2", linewidth=1)
+y2 = plot(p_loband2,  color=color.new(color.red,50),   style=plot.style_line,    title=" S2", linewidth=1)
 
 //-----------------------
 // Draw zone
@@ -359,25 +361,25 @@ float upband2_8 = drawchannel and displayzone ? upband2 + (meanrange * gradsize 
 float upband2_9 = drawchannel and displayzone ? upband2 + (meanrange * gradsize * -4) : na, float loband2_9 = drawchannel and displayzone ? loband2 - (meanrange * gradsize * -4) : na
 
 //---
-plot_upband2_1 = plot(upband2_1, color=na, transp=100, display=display.none), plot_loband2_1 = plot(loband2_1, color=na, transp=100, display=display.none)
-plot_upband2_2 = plot(upband2_2, color=na, transp=100, display=display.none), plot_loband2_2 = plot(loband2_2, color=na, transp=100, display=display.none)
-plot_upband2_3 = plot(upband2_3, color=na, transp=100, display=display.none), plot_loband2_3 = plot(loband2_3, color=na, transp=100, display=display.none)
-plot_upband2_4 = plot(upband2_4, color=na, transp=100, display=display.none), plot_loband2_4 = plot(loband2_4, color=na, transp=100, display=display.none)
-plot_upband2_5 = plot(upband2_5, color=na, transp=100, display=display.none), plot_loband2_5 = plot(loband2_5, color=na, transp=100, display=display.none)
-plot_upband2_6 = plot(upband2_6, color=na, transp=100, display=display.none), plot_loband2_6 = plot(loband2_6, color=na, transp=100, display=display.none)
-plot_upband2_7 = plot(upband2_7, color=na, transp=100, display=display.none), plot_loband2_7 = plot(loband2_7, color=na, transp=100, display=display.none)
-plot_upband2_8 = plot(upband2_8, color=na, transp=100, display=display.none), plot_loband2_8 = plot(loband2_8, color=na, transp=100, display=display.none)
-plot_upband2_9 = plot(upband2_9, color=na, transp=100, display=display.none), plot_loband2_9 = plot(loband2_9, color=na, transp=100, display=display.none)
+plot_upband2_1 = plot(upband2_1, color=color.new(na,100), display=display.none), plot_loband2_1 = plot(loband2_1, color=color.new(na,100) ,display=display.none)
+plot_upband2_2 = plot(upband2_2, color=color.new(na,100), display=display.none), plot_loband2_2 = plot(loband2_2, color=color.new(na,100), display=display.none)
+plot_upband2_3 = plot(upband2_3, color=color.new(na,100), display=display.none), plot_loband2_3 = plot(loband2_3, color=color.new(na,100), display=display.none)
+plot_upband2_4 = plot(upband2_4, color=color.new(na,100), display=display.none), plot_loband2_4 = plot(loband2_4, color=color.new(na,100), display=display.none)
+plot_upband2_5 = plot(upband2_5, color=color.new(na,100), display=display.none), plot_loband2_5 = plot(loband2_5, color=color.new(na,100), display=display.none)
+plot_upband2_6 = plot(upband2_6, color=color.new(na,100), display=display.none), plot_loband2_6 = plot(loband2_6, color=color.new(na,100), display=display.none)
+plot_upband2_7 = plot(upband2_7, color=color.new(na,100), display=display.none), plot_loband2_7 = plot(loband2_7, color=color.new(na,100), display=display.none)
+plot_upband2_8 = plot(upband2_8, color=color.new(na,100), display=display.none), plot_loband2_8 = plot(loband2_8, color=color.new(na,100), display=display.none)
+plot_upband2_9 = plot(upband2_9, color=color.new(na,100), display=display.none), plot_loband2_9 = plot(loband2_9, color=color.new(na,100), display=display.none)
 
 //---
-fill(plot_upband2_1,plot_upband2_2, color=color1, transp=gradtransp), fill(plot_loband2_1,plot_loband2_2, color=color1, transp=gradtransp)
-fill(plot_upband2_2,plot_upband2_3, color=color2, transp=gradtransp), fill(plot_loband2_2,plot_loband2_3, color=color2, transp=gradtransp)
-fill(plot_upband2_3,plot_upband2_4, color=color3, transp=gradtransp), fill(plot_loband2_3,plot_loband2_4, color=color3, transp=gradtransp)
-fill(plot_upband2_4,plot_upband2_5, color=color4, transp=gradtransp), fill(plot_loband2_4,plot_loband2_5, color=color4, transp=gradtransp)
-fill(plot_upband2_5,plot_upband2_6, color=color5, transp=gradtransp), fill(plot_loband2_5,plot_loband2_6, color=color5, transp=gradtransp)
-fill(plot_upband2_6,plot_upband2_7, color=color6, transp=gradtransp), fill(plot_loband2_6,plot_loband2_7, color=color6, transp=gradtransp)
-fill(plot_upband2_7,plot_upband2_8, color=color7, transp=gradtransp), fill(plot_loband2_7,plot_loband2_8, color=color7, transp=gradtransp)
-fill(plot_upband2_8,plot_upband2_9, color=color8, transp=gradtransp), fill(plot_loband2_8,plot_loband2_9, color=color8, transp=gradtransp)
+fill(plot_upband2_1,plot_upband2_2, color=color.new(color1, gradtransp)), fill(plot_loband2_1,plot_loband2_2, color=color.new(color1, gradtransp))
+fill(plot_upband2_2,plot_upband2_3, color=color.new(color2, gradtransp)), fill(plot_loband2_2,plot_loband2_3, color=color.new(color2, gradtransp))
+fill(plot_upband2_3,plot_upband2_4, color=color.new(color3, gradtransp)), fill(plot_loband2_3,plot_loband2_4, color=color.new(color3, gradtransp))
+fill(plot_upband2_4,plot_upband2_5, color=color.new(color4, gradtransp)), fill(plot_loband2_4,plot_loband2_5, color=color.new(color4, gradtransp))
+fill(plot_upband2_5,plot_upband2_6, color=color.new(color5, gradtransp)), fill(plot_loband2_5,plot_loband2_6, color=color.new(color5, gradtransp))
+fill(plot_upband2_6,plot_upband2_7, color=color.new(color6, gradtransp)), fill(plot_loband2_6,plot_loband2_7, color=color.new(color6, gradtransp))
+fill(plot_upband2_7,plot_upband2_8, color=color.new(color7, gradtransp)), fill(plot_loband2_7,plot_loband2_8, color=color.new(color7, gradtransp))
+fill(plot_upband2_8,plot_upband2_9, color=color.new(color8, gradtransp)), fill(plot_loband2_8,plot_loband2_9, color=color.new(color8, gradtransp))
 
 //-----------------------
 // Plot Extension
@@ -395,9 +397,9 @@ var line sup2 = na, line.delete(sup2), sup2 := displayline ? f_PriceLine(loband2
 // Prep MTF Label
 //--------------
 var brl         = "\n--------------------------------------"
-dist_0          = "Distance from Mean: "+ tostring(((close-meanline)/close)*100, "#.##") + " %"
-dist_1          = "Distance from Mean: "+ tostring(((close-mtf1_meanline)/close)*100, "#.##") + " %"
-dist_2          = "Distance from Mean: "+ tostring(((close-mtf2_meanline)/close)*100, "#.##") + " %"
+dist_0          = "Distance from Mean: "+ str.tostring(((close-meanline)/close)*100, "#.##") + " %"
+dist_1          = "Distance from Mean: "+ str.tostring(((close-mtf1_meanline)/close)*100, "#.##") + " %"
+dist_2          = "Distance from Mean: "+ str.tostring(((close-mtf2_meanline)/close)*100, "#.##") + " %"
 
 var title   = "Mean Reversion Channel\nMultiple TimeFrame Analysis" + brl
 tf0 = 
