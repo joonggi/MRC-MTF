@@ -1,0 +1,124 @@
+//@version=5
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © joonggi9532
+
+//indicator('Machine Learning: kNN-based Strategy', 'ML-kNN', true, max_labels_count=300, format=format.price, precision=2, timeframe="", timeframe_gaps=true)
+strategy('SM Money+UMA ', overlay=true, pyramiding=1, commission_type=strategy.commission.percent, commission_value=0.04, initial_capital=1000, default_qty_type=strategy.cash, default_qty_value=500, currency=currency.USD, precision=4, max_labels_count=200)
+// kNN-based Strategy (FX and Crypto)
+
+//inputs
+src = close
+useCurrentRes = input(true, title="Use Current Chart Resolution?")
+resCustom = input.timeframe(title="Use Different Timeframe? Uncheck Box Above",  defval="D")
+len = input(20, title="Moving Average Length - LookBack Period")
+atype = input.int(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+cc = input(true,title="Change Color Based On Direction?")
+smoothe = input.int(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
+doma2 = input(false, title="Optional 2nd Moving Average")
+len2 = input(50, title="Moving Average Length - Optional 2nd MA")
+atype2 = input.int(3,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+cc2 = input(true,title="Change Color Based On Direction 2nd MA?")
+warn = input(false, title="***You Can Turn On The Show Dots Parameter Below Without Plotting 2nd MA to See Crosses***")
+warn2 = input(false, title="***If Using Cross Feature W/O Plotting 2ndMA - Make Sure 2ndMA Parameters are Set Correctly***")
+sd = input(false, title="Show Dots on Cross of Both MA's")
+
+
+res = useCurrentRes ? timeframe.period : resCustom
+//hull ma definition
+hullma = ta.wma(2*ta.wma(src, len/2)-ta.wma(src, len), math.round(math.sqrt(len)))
+//TEMA definition
+ema1 = ta.ema(src, len)
+ema2 = ta.ema(ema1, len)
+ema3 = ta.ema(ema2, len)
+tema = 3 * (ema1 - ema2) + ema3
+
+avg = atype == 1 ? ta.sma(src,len) : atype == 2 ? ta.ema(src,len) : atype == 3 ? ta.wma(src,len) : atype == 4 ? hullma : atype == 5 ? ta.vwma(src, len) : atype == 6 ? ta.rma(src,len) : tema
+//2nd Ma - hull ma definition
+hullma2 = ta.wma(2*ta.wma(src, len2/2)-ta.wma(src, len2), math.round(math.sqrt(len2)))
+//2nd MA TEMA definition
+sema1 = ta.ema(src, len2)
+sema2 = ta.ema(sema1, len2)
+sema3 = ta.ema(sema2, len2)
+stema = 3 * (sema1 - sema2) + sema3
+
+avg2 = atype2 == 1 ? ta.sma(src,len2) : atype2 == 2 ? ta.ema(src,len2) : atype2 == 3 ? ta.wma(src,len2) : atype2 == 4 ? hullma2 : atype2 == 5 ? ta.vwma(src, len2) : atype2 == 6 ? ta.rma(src,len2) : tema
+
+out = avg 
+out_two = avg2
+
+out1 = request.security(syminfo.tickerid, res, out)
+out2 = request.security(syminfo.tickerid, res, out_two)
+
+ma_up = out1 >= out1[smoothe]
+ma_down = out1 < out1[smoothe]
+
+col = cc ? ma_up ? color.lime : ma_down ? color.red : color.aqua : color.aqua
+col2 = cc2 ? ma_up ? color.lime : ma_down ? color.red : color.aqua : color.aqua
+
+circleYPosition = out2
+
+plot(out1, title="Multi-Timeframe Moving Avg", style=plot.style_line, linewidth=4, color = col)
+plot(doma2 ? out2 : na, title="2nd Multi-TimeFrame Moving Average", style=plot.style_circles, linewidth=4, color=col2)
+plot(sd and ta.cross(out1, out2) ? circleYPosition : na,style=plot.style_cross, linewidth=5, color=color.yellow)
+
+
+/////Smart Money Interest Index
+
+x = input.int(25, "Index Period", minval = 1)
+rr = input.int(14, "Volume Flow Period", minval = 1)
+peakslen = input.int(500, "Normalization Period", minval = 1)
+thr = input.float(0.9, "High Interes Threshold", minval = 0.01, maxval = 0.99)
+green = input.color(#00ffbb, "Up Color")
+red = input.color(#ff1100, "Down Color")
+
+dumb = ta.pvi-ta.ema(ta.pvi,255)
+smart = ta.nvi-ta.ema(ta.nvi,255)
+
+drsi = ta.rsi(dumb, rr)
+srsi = ta.rsi(smart, rr)
+
+r = srsi/drsi //ratio shows if smart money is buying from dumb money selling and vice versa
+
+sums = math.sum(r, x)
+peak = ta.highest(sums, peakslen)
+
+index = sums/peak
+
+bottom = plot(0, display = display.none)
+top = plot(1, display = display.none)
+thresh = plot(thr, display = display.none)
+i = plot(index, color = green)
+fill(bottom, top, 1, 0, color.new(color.blue, 90), red)
+fill(thresh, top, 1, thr, color.new(color.yellow, 90), color.new(color.yellow, 60))
+fill(bottom, i, index, 0, green, chart.bg_color)
+
+barcolor(index > thr ? green : na)
+
+///Alerts
+
+alertcondition(ta.crossover(index, thr), "High Smart Money Interest")
+alertcondition(ta.crossunder(index, thr), "Smart Money Interest no longer high")
+
+
+
+//Signal
+
+showLabels = input(title='Show Buy/Sell Labels ?', tooltip='Created by Chandelier Exit (CE)', defval=false)
+isSignalLabelEnabled = input(title='Show Signal Labels ?', defval=true)
+
+
+bool buy_signal = index > thr and ma_up
+bool longStop  = ma_down
+
+
+plotshape(buySignal and showLabels ? longStop : na, title='Buy Label', text='Buy', location=location.absolute, style=shape.labelup, size=size.tiny, color=mediumAquamarine, textcolor=color.white)
+
+
+// -- Long Entries --
+if (buy_signal)
+  strategy.entry('long', strategy.long, comment='ENTER_LONG')
+
+// -- Long Exits --
+if (longStop and strategy.position_size > 0)
+  strategy.close('long', comment='EXIT_LONG')
+
