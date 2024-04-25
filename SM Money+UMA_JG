@@ -11,7 +11,7 @@ src = close
 useCurrentRes = input(true, title="Use Current Chart Resolution?")
 resCustom = input.timeframe(title="Use Different Timeframe? Uncheck Box Above",  defval="D")
 len = input(20, title="Moving Average Length - LookBack Period")
-atype = input.int(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+atype = input.int(3,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
 cc = input(true,title="Change Color Based On Direction?")
 smoothe = input.int(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
 doma2 = input(false, title="Optional 2nd Moving Average")
