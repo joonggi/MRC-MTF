@@ -1,0 +1,49 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TRJAKE_kr
+
+//@version=5
+indicator("RSI/MFI weighted MA", overlay=true)
+
+option = input.string("RSI", options = ["RSI","MFI"])
+osc_len = input.int(defval= 14, title= 'OSC Length')
+ma_len = input.int(100, title = 'MA Length',step =1)
+weight = input.float(defval = 5, title = 'Weight')
+bullish_color = input.color(color.rgb(33, 255, 120), "Bullish Color", group = "Color")
+bearish_color = input.color(color.rgb(255, 33, 33), "Bearish Color", group = "Color")
+mid_color = input.color(color.rgb(255, 255, 255, 100), "Mid Color", group = "Color")
+
+rsi = ta.rsi(close, osc_len) / 100
+mfi = ta.mfi(hlc3, osc_len) / 100
+
+Func(act, _src, _period) =>
+    alpha1 = weight / (_period + 1)
+    MA = 0.0
+    MA := _src * alpha1 * act + nz(MA[1]) * (1 - alpha1 * act)
+    MA
+
+var MA_1 = float(na)
+var MA_2 = float(na)
+
+
+if option == "RSI"
+    MA_1 := Func(rsi, close, ma_len)
+
+if option == "MFI"
+    MA_1 := Func(mfi, close, ma_len)
+
+
+top_line = MA_1 + (ta.atr(14) * 0.3)
+bottom_line = MA_1 - (ta.atr(14) * 0.3)
+rising = ta.rising(MA_1, 2)
+falling = ta.falling(MA_1,2)
+ 
+var color color_1 = na
+color_1 := rising ? color.rgb(33, 255, 120): falling?  color.rgb(255, 33, 33) : color_1[1]
+
+plot_MA_1 = plot(MA_1, color=color_1, linewidth=3)
+plot_top = plot(top_line, "Top", color=mid_color, linewidth=1)
+plot_bottom = plot(bottom_line, "Bottom", color=mid_color, linewidth=1)
+
+fill_color =color.new(color_1,82) 
+fill(plot_MA_1, plot_top, color=fill_color)
+fill(plot_MA_1, plot_bottom, color=fill_color)
