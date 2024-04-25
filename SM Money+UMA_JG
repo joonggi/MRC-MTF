@@ -87,12 +87,12 @@ index = sums/peak
 bottom = plot(0, display = display.none)
 top = plot(1, display = display.none)
 thresh = plot(thr, display = display.none)
-i = plot(index, color = green)
-fill(bottom, top, 1, 0, color.new(color.blue, 90), red)
-fill(thresh, top, 1, thr, color.new(color.yellow, 90), color.new(color.yellow, 60))
-fill(bottom, i, index, 0, green, chart.bg_color)
+//i = plot(index, color = green)
+///fill(bottom, top, 1, 0, color.new(color.blue, 90), red)
+///fill(thresh, top, 1, thr, color.new(color.yellow, 90), color.new(color.yellow, 60))
+///fill(bottom, i, index, 0, green, chart.bg_color)
 
-barcolor(index > thr ? green : na)
+///barcolor(index > thr ? green : na)
 
 ///Alerts
 
@@ -125,16 +125,15 @@ color carrotOrange = color.rgb(239, 146, 46)
 
 
 
-plotshape(buySignal and showLabels ? longStop : na, title='Buy Label', text='Buy', location=location.absolute, style=shape.labelup, size=size.tiny, color=mediumAquamarine, textcolor=color.white)
+plotshape(buy_signal and showLabels ? longStop : na, title='Buy Label', text='Buy', location=location.absolute, style=shape.labelup, size=size.tiny, color=mediumAquamarine, textcolor=color.white)
 
 
 // -- Long Entries --
 if (buy_signal)
     strategy.entry('long', strategy.long, comment='ENTER_LONG')
-  else
+else
     strategy.cancel('long')
 
 // -- Long Exits --
-if (longStop and strategy.position_size > 0)
-  strategy.close('long', comment='EXIT_LONG')
-
+if (longStop)
+    strategy.close('long', comment='EXIT_LONG')
