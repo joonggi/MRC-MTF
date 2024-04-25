@@ -110,13 +110,29 @@ isSignalLabelEnabled = input(title='Show Signal Labels ?', defval=true)
 bool buy_signal = index > thr and ma_up
 bool longStop  = ma_down
 
+// -- Colors --
+color maximumYellowRed = color.rgb(255, 203, 98) // yellow
+color rajah = color.rgb(242, 166, 84) // orange
+color magicMint = color.rgb(171, 237, 198)
+color languidLavender = color.rgb(232, 215, 255)
+color maximumBluePurple = color.rgb(181, 161, 226)
+color skyBlue = color.rgb(144, 226, 244)
+color lightGray = color.rgb(214, 214, 214)
+color quickSilver = color.rgb(163, 163, 163)
+color mediumAquamarine = color.rgb(104, 223, 153)
+color carrotOrange = color.rgb(239, 146, 46)
+
+
+
 
 plotshape(buySignal and showLabels ? longStop : na, title='Buy Label', text='Buy', location=location.absolute, style=shape.labelup, size=size.tiny, color=mediumAquamarine, textcolor=color.white)
 
 
 // -- Long Entries --
 if (buy_signal)
-  strategy.entry('long', strategy.long, comment='ENTER_LONG')
+    strategy.entry('long', strategy.long, comment='ENTER_LONG')
+  else
+    strategy.cancel('long')
 
 // -- Long Exits --
 if (longStop and strategy.position_size > 0)
