@@ -31,12 +31,12 @@ src = close
 useCurrentRes = input(true, title="Use Current Chart Resolution?")
 resCustom = input.timeframe(title="Use Different Timeframe? Uncheck Box Above", defval="D")
 len = input(20, title="Moving Average Length - LookBack Period")
-atype = input.float(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+atype = input.int(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
 cc = input(true,title="Change Color Based On Direction?")
-smoothe = input.float(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
+smoothe = input.int(2, minval=1, maxval=10, title="Color Smoothing - 1 = No Smoothing")
 doma2 = input.bool(false, title="Optional 2nd Moving Average")
 len2 = input(50, title="Moving Average Length - Optional 2nd MA")
-atype2 = input.float(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
+atype2 = input.int(1,minval=1,maxval=7,title="1=SMA, 2=EMA, 3=WMA, 4=HullMA, 5=VWMA, 6=RMA, 7=TEMA")
 cc2 = input(true,title="Change Color Based On Direction 2nd MA?")
 warn = input(false, title="***You Can Turn On The Show Dots Parameter Below Without Plotting 2nd MA to See Crosses***")
 warn2 = input(false, title="***If Using Cross Feature W/O Plotting 2ndMA - Make Sure 2ndMA Parameters are Set Correctly***")
@@ -79,7 +79,7 @@ col2 = cc2 ? ma_up ? color.lime : ma_down ? color.red : color.aqua : color.aqua
 circleYPosition = out2
 
 plot(out1, title="Multi-Timeframe Moving Avg", style=plot.style_line, linewidth=4, color = col)
-plot(doma2 and out2 ? out2 : na, title="2nd Multi-TimeFrame Moving Average", style=plot.style_circles, linewidth=4, color=col2)
+plot(doma2 ? out2 : na, title="2nd Multi-TimeFrame Moving Average", style=plot.style_circles, linewidth=4, color=col2)
 plot(sd and ta.cross(out1, out2) ? circleYPosition : na,style=plot.style_cross, linewidth=5, color=color.yellow)
 
 
